@@ -1,2 +1,1 @@
-# TrabalhoFinalAED2
- Repositório dedicado ao desenvolvimento do trabalho final da disciplina de AED2
+Branch para tentar arrumar a configuração inicial do programa
