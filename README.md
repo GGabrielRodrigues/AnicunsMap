@@ -153,31 +153,7 @@ Após a preparação inicial, você pode compilar o backend C e executar a inter
     * *Nota:* Certifique-se de que o script tenha permissões de execução: `chmod +x build_and_run.sh`.
 
 * **Windows:**
-    Crie um novo arquivo na pasta `TrabalhoFinalAED2/` chamado `build_and_run.bat` e cole o seguinte conteúdo:
-    ```batch
-    @echo off
-    echo --- LIMPANDO QUALQUER BIBLIOTECA ANTIGA...
-    del backend_c\lib\integracao_lib.dll > nul 2>&1
-
-    echo --- COMPILANDO A NOVA BIBLIOTECA C...
-    gcc -shared -o backend_c\lib\integracao_lib.dll -Ibackend_c\src backend_c\src\integracao.c
-
-    if %errorlevel% neq 0 (
-        echo Erro na compilacao do backend C. Certifique-se de que o GCC esta no seu PATH.
-        pause
-        exit /b %errorlevel%
-    )
-
-    echo --- COMPILACAO CONCLUIDA COM SUCESSO.
-    echo --- ATIVANDO O AMBIENTE VIRTUAL E INICIANDO O PROGRAMA PYTHON...
-
-    cd frontend_python
-    call .\venv\Scripts\activate.bat
-    python main_gui.py
-    cd ..
-    pause
-    ```
-    Em seguida, execute este arquivo no Command Prompt:
+    Execute este arquivo no Command Prompt:
     ```cmd
     build_and_run.bat
     ```
