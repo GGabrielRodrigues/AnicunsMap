@@ -14,8 +14,20 @@ if %errorlevel% neq 0 (
 echo --- COMPILACAO CONCLUIDA COM SUCESSO.
 echo --- ATIVANDO O AMBIENTE VIRTUAL E INICIANDO O PROGRAMA PYTHON...
 
-cd frontend_python
-call .\venv\Scripts\activate.bat
+REM Salva o diretório atual da raiz do projeto
+set PROJECT_ROOT=%~dp0
+
+REM Navega para o diretório frontend_python
+cd "%PROJECT_ROOT%frontend_python"
+
+REM Ativa o ambiente virtual
+call ".\venv\Scripts\activate.bat"
+
+REM Executa o script Python
 python main_gui.py
-cd ..
+
+REM Desativa o ambiente virtual e retorna ao diretório original (opcional, mas boa prática)
+deactivate
+cd "%PROJECT_ROOT%"
+
 pause
