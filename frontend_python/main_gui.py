@@ -7,9 +7,9 @@ import math
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                                QHBoxLayout, QPushButton, QLabel, QComboBox,
                                QCheckBox, QSlider, QTableWidget, QTableWidgetItem,
-                               QGraphicsView, QGraphicsScene, QMessageBox, QHeaderView,
+                               QGraphicsView, QGraphicsScene, QScrollArea, QMessageBox, QHeaderView,
                                QGroupBox, QRadioButton, QFileDialog) 
-from PySide6.QtGui import QPixmap, QColor, QPen, QBrush, QFont, QPainter, QClipboard, QTransform
+from PySide6.QtGui import QPixmap, QColor, QPen, QBrush, QFont, QPainter, QCursor, QClipboard, QTransform
 from PySide6.QtCore import Qt, QPointF, QRectF
 
 # --- 1. Configuração e Carregamento da Biblioteca C ---
@@ -88,6 +88,94 @@ lib.remover_vertice.restype = ctypes.c_int
 
 INF_C = 1e9
 
+class PannableGraphicsView(QGraphicsView):
+    def __init__(self, scene, parent=None):
+        super().__init__(scene, parent)
+        self.setRenderHint(QPainter.Antialiasing)
+        self.setMouseTracking(True) # Para que mouseMoveEvent funcione mesmo sem botão pressionado
+        self.setDragMode(QGraphicsView.NoDrag) # Desativa o modo de arrastar padrão do QGraphicsView
+
+        self.panning = False
+        self.last_mouse_pos = QPointF() # Armazena a última posição do mouse como QPointF
+
+        self.app_instance = parent # Referência à instância de SistemaNavegacaoApp
+
+        # Desabilitar barras de rolagem padrão
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+
+        # Configurações de transformação para inicialização (garante estado limpo)
+        self.setTransform(QTransform()) # Reseta qualquer transformação pré-existente
+        self.setRenderHint(QPainter.SmoothPixmapTransform, True) # Opcional: melhora a qualidade visual
+
+    def mousePressEvent(self, event):
+
+        if event.button() == Qt.LeftButton:
+            # Lógica para seleção de vértices (chama o método da classe principal)
+            if self.app_instance and hasattr(self.app_instance, 'map_clicked'):
+                self.app_instance.map_clicked(event)
+            # IMPORTANT: Não chame super().mousePressEvent(event) aqui, para que o clique esquerdo
+            # seja tratado APENAS pelo map_clicked do SistemaNavegacaoApp.
+        elif event.button() == Qt.RightButton: # Inicia o modo de pan com o botão direito
+            self.panning = True
+            self.last_mouse_pos = event.position() # Guarda a posição inicial do mouse (QPointF)
+            self.setCursor(QCursor(Qt.ClosedHandCursor)) # Muda o cursor para "mão fechada"
+            event.accept() # Aceita o evento para consumi-lo
+        else:
+            # Para outros botões (ex: roda do meio se não for usada para scroll), passa para o pai
+            super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+
+        if self.panning:
+            current_pos = event.position() # Posição atual do mouse (QPointF)
+
+            # Calcula o delta (deslocamento) em coordenadas da viewport (pixels da tela)
+            dx = current_pos.x() - self.last_mouse_pos.x()
+            dy = current_pos.y() - self.last_mouse_pos.y()
+
+            # Aplica a translação diretamente na View.
+            # self.translate(dx, dy) move a "câmera" da view pelo dx, dy pixels
+            # no espaço da view. Isso faz com que a cena se mova na mesma direção
+            # visualmente.
+            self.horizontalScrollBar().setValue(self.horizontalScrollBar().value() - dx)
+            self.verticalScrollBar().setValue(self.verticalScrollBar().value() - dy)
+
+            self.last_mouse_pos = current_pos # Atualiza a última posição para o próximo movimento
+            event.accept() # Consome o evento
+        else:
+            super().mouseMoveEvent(event) # Passa para o pai se não estiver paning
+
+    def mouseReleaseEvent(self, event):
+        # DEBUG: Verifica qual botão foi solto
+
+        if event.button() == Qt.RightButton and self.panning: # Se for o botão direito e estava paning
+            self.panning = False
+            self.setCursor(QCursor(Qt.ArrowCursor)) # Volta o cursor para a seta padrão
+            event.accept() # Consome o evento
+        else:
+            super().mouseReleaseEvent(event)
+
+    def wheelEvent(self, event):
+        # Lógica de Zoom (mantida como antes)
+        zoom_factor = 1.25
+        if event.angleDelta().y() > 0: # Roda para cima (zoom in)
+            scale_factor = zoom_factor
+        else: # Roda para baixo (zoom out)
+            scale_factor = 1 / zoom_factor
+
+        # Ponto de zoom no local do mouse (coordenadas da cena)
+        old_pos = self.mapToScene(event.position().toPoint()) # .toPoint() é necessário para mapToScene
+        
+        self.scale(scale_factor, scale_factor) # Aplica a escala
+
+        # Ajusta a posição da view para que o ponto sob o mouse permaneça fixo
+        new_pos = self.mapToScene(event.position().toPoint()) # .toPoint() é necessário para mapToScene
+        delta_pos = new_pos - old_pos
+        self.translate(delta_pos.x(), delta_pos.y()) # Translada a view para compensar o zoom
+
+        event.accept() # Consome o evento para evitar rolagem padrão
+
 # --- Classe Principal da Janela ---
 class SistemaNavegacaoApp(QMainWindow):
     def __init__(self):
@@ -115,7 +203,6 @@ class SistemaNavegacaoApp(QMainWindow):
         self.init_ui()
         anicuns_osm_path = os.path.join(DATA_DIR, 'anicuns.osm')
         self.load_map_data(anicuns_osm_path)
-
 
     def refresh_graph_data_from_c(self):
         # Resetar dados existentes
@@ -145,8 +232,20 @@ class SistemaNavegacaoApp(QMainWindow):
         # --- Painel Esquerdo: Controles ---
         self.controls_panel = QWidget()
         self.controls_layout = QVBoxLayout(self.controls_panel)
-        self.controls_panel.setFixedWidth(350) 
+        # self.controls_panel.setFixedWidth(350) 
 
+        # -------------- Alterações
+        # Agora, crie o QScrollArea e configure-o
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True) # Permite que o widget interno seja redimensionado pelo scroll area
+        self.scroll_area.setWidget(self.controls_panel) # Define o controls_panel como o conteúdo do scroll area
+
+         # O QScrollArea agora tem um tamanho fixo, não o controls_panel
+        self.scroll_area.setFixedWidth(350) # Defina a largura fixa para o QScrollArea
+
+
+
+        # --------------
         self.controls_layout.addWidget(QLabel("<h1>Sistema de Navegação</h1>"))
         self.controls_layout.addWidget(QLabel("<h3>Algoritmo de Dijkstra</h3>"))
 
@@ -192,20 +291,6 @@ class SistemaNavegacaoApp(QMainWindow):
         self.controls_layout.addWidget(self.check_label_edges)
         
         self.controls_layout.addSpacing(10)
-
-        # Layout para os botões de zoom
-        zoom_layout = QHBoxLayout()
-        self.zoom_in_btn = QPushButton("Zoom +")
-        self.zoom_out_btn = QPushButton("Zoom -")
-        zoom_layout.addWidget(self.zoom_in_btn)
-        zoom_layout.addWidget(self.zoom_out_btn)
-        
-        # Conecta os botões às futuras funções de zoom
-        self.zoom_in_btn.clicked.connect(self.zoom_in)
-        self.zoom_out_btn.clicked.connect(self.zoom_out)
-
-        self.controls_layout.addLayout(zoom_layout)
-        # -------------------------
         
         self.controls_layout.addSpacing(10)
         
@@ -277,15 +362,22 @@ class SistemaNavegacaoApp(QMainWindow):
         self.exit_btn.clicked.connect(self.close)
         self.controls_layout.addWidget(self.exit_btn)
         self.controls_layout.addStretch()
-        self.main_layout.addWidget(self.controls_panel)
+        self.main_layout.addWidget(self.scroll_area)
 
         # --- Painel Direito: Área de Desenho do Mapa ---
         self.graphics_scene = QGraphicsScene()
-        self.graphics_view = QGraphicsView(self.graphics_scene)
-        self.graphics_view.setRenderHint(QPainter.Antialiasing)
-        self.graphics_view.setMouseTracking(True)
+        # Mude esta linha para usar sua nova classe
+        self.graphics_view = PannableGraphicsView(self.graphics_scene, self) # Passa self (a instância de SistemaNavegacaoApp) como parent
+        # Remova estas linhas, elas já estão na nova classe PannableGraphicsView:
+        # self.graphics_view.setRenderHint(QPainter.Antialiasing)
+        # self.graphics_view.setMouseTracking(True)
+        # Remova esta linha, pois os eventos do mouse serão gerenciados pela subclasse:
+        # self.graphics_view.mousePressEvent = self.map_clicked
+
+        self.graphics_view.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.graphics_view.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+
         self.main_layout.addWidget(self.graphics_view)
-        self.graphics_view.mousePressEvent = self.map_clicked
         self.statusBar().showMessage("Inicializando...")
 
     def load_map_data(self, osm_file_path): 
@@ -319,6 +411,7 @@ class SistemaNavegacaoApp(QMainWindow):
         
         self.statusBar().showMessage(f"Processando Mapa: Carregando grafo do arquivo {poly_file_name}...")
         QApplication.processEvents()
+        
         try:
             lib.carregarPoly(poly_file_path.encode('utf-8'))
             lib.construirGrafo()
@@ -352,16 +445,22 @@ class SistemaNavegacaoApp(QMainWindow):
             self.statusBar().showMessage(f"Mapa carregado com {self.total_vertices} vértices e {len(self.edges_data)} arestas.")
             self.current_osm_file_label.setText(f"Arquivo carregado: {os.path.basename(osm_file_path)}") 
 
-            # ================== BLOCO DE ZOOM AJUSTÁVEL==================
-            full_rect = self.graphics_scene.sceneRect()
-            if full_rect.isEmpty(): # Adicionado para evitar erro se o mapa estiver vazio
-                return
-            center_x = full_rect.center().x()
-            center_y = full_rect.center().y()
-            self.zoom_level = 0 
-            self.apply_zoom() 
-            self.graphics_view.centerOn(center_x, center_y) # Centraliza a view no mapa carregado
-            # =============================================================
+            # ================== AJUSTE INICIAL DA VISTA AO CARREGAR MAPA ==================
+            full_rect = self.graphics_scene.itemsBoundingRect()
+            if not full_rect.isEmpty():
+                # 1. Ajusta a view para que todo o conteúdo da cena seja visível
+                self.graphics_view.fitInView(full_rect, Qt.KeepAspectRatio)
+
+                # 2. Aplica um zoom adicional para aproximar
+                # Você pode ajustar este fator (ex: 1.2 para 20% a mais de zoom, 1.5 para 50% a mais)
+                initial_zoom_boost = 20 # Experimente com 1.1, 1.2, 1.3, etc.
+                self.graphics_view.scale(initial_zoom_boost, initial_zoom_boost)
+
+                # 3. Centraliza a vista no centro da cena após o zoom
+                # Embora fitInView já centralize, um zoom adicional pode deslocar um pouco.
+                # Garantimos a centralização novamente.
+                self.graphics_view.centerOn(full_rect.center()) # Use full_rect.center() que já é um QPointF
+            # ==============================================================================
 
         except Exception as e:
             QMessageBox.critical(self, "Erro ao Carregar Grafo", f"Não foi possível carregar o grafo do arquivo .poly: {e}")
@@ -624,34 +723,6 @@ class SistemaNavegacaoApp(QMainWindow):
         painter.end()
         QApplication.clipboard().setPixmap(pixmap)
         self.statusBar().showMessage("Imagem do mapa copiada para a área de transferência!")
-    
-# ================== NOVAS FUNÇÕES DE ZOOM ==================
-    def zoom_in(self):
-        self.zoom_level += 1
-        self.apply_zoom()
-
-    def zoom_out(self):
-        self.zoom_level -= 1
-        self.apply_zoom()
-
-    def apply_zoom(self):
-        # Calcula a escala com base no nível e fator de zoom
-        scale = self.zoom_factor ** self.zoom_level
-        
-        # Cria uma matriz de transformação
-        transform = QTransform()
-        transform.scale(scale, scale)
-        
-        # Aplica a transformação à view
-        self.graphics_view.setTransform(transform)
-
-    def wheelEvent(self, event):
-        # Sobrescreve o evento da roda do mouse da janela principal
-        if event.angleDelta().y() > 0:
-            self.zoom_in()
-        else:
-            self.zoom_out()
-    # ==========================================================
 
     def set_editing_mode(self, mode):
         # Reseta seleções ao trocar de modo para evitar confusão
