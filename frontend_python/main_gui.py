@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                                QHBoxLayout, QPushButton, QLabel, QComboBox,
                                QCheckBox, QSlider, QTableWidget, QTableWidgetItem,
                                QGraphicsView, QGraphicsScene, QScrollArea, QMessageBox, QHeaderView,
-                               QGroupBox, QRadioButton, QFileDialog) 
+                               QGroupBox, QRadioButton, QFileDialog, QGraphicsLineItem) 
 from PySide6.QtGui import QPixmap, QColor, QPen, QBrush, QFont, QPainter, QCursor, QClipboard, QTransform
 from PySide6.QtCore import Qt, QPointF, QRectF
 
@@ -270,13 +270,16 @@ class SistemaNavegacaoApp(QMainWindow):
 
         self.controls_layout.addWidget(QLabel("<b>Visualização:</b>"))
         self.color_combo = QComboBox()
-        self.color_combo.addItems(["Gray", "Black", "Blue", "Green", "Red"])
-        self.color_combo.setCurrentText("Gray")
+        self.color_combo.addItems(["Gray", "DarkGray", "LightGray"])
+        self.color_combo.setCurrentText("DarkGray")
         self.color_combo.currentIndexChanged.connect(self.update_map_display)
         self.controls_layout.addWidget(self.color_combo)
         
+        self.controls_layout.addSpacing(10)
+        
+        self.controls_layout.addWidget(QLabel("<b>Tamanho dos vértices:</b>"))
         self.point_size_slider = QSlider(Qt.Horizontal)
-        self.point_size_slider.setRange(1, 10); self.point_size_slider.setValue(3)
+        self.point_size_slider.setRange(1, 10); self.point_size_slider.setValue(6)
         self.point_size_slider.valueChanged.connect(self.update_map_display)
         self.controls_layout.addWidget(self.point_size_slider)
 
@@ -485,7 +488,7 @@ class SistemaNavegacaoApp(QMainWindow):
         self.graphics_scene.setSceneRect(min_x - margin, min_y - margin, (max_x - min_x) + 2 * margin, (max_y - min_y) + 2 * margin)
 
         edge_pen = QPen(QColor(self.color_combo.currentText().lower()).lighter(150), 0.5)
-        arrow_pen = QPen(QColor("purple"), 1.5, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+        arrow_pen = QPen(QColor("purple"), 2, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
 
         for u, v, weight, is_oneway in self.edges_data:
             if u < len(self.vertices_coords) and v < len(self.vertices_coords):
@@ -529,13 +532,13 @@ class SistemaNavegacaoApp(QMainWindow):
         point_size = self.point_size_slider.value()
         for i, (x, y) in enumerate(self.vertices_coords):
             brush = QBrush(QColor(self.color_combo.currentText().lower()))
-            pen = QPen(Qt.black, 0.5)
+            pen = QPen(QColor("Indigo"), 0.35)
             if i == self.first_edge_vertex:
-                brush.setColor(QColor("orange")); pen.setColor(QColor("darkred")); pen.setWidth(2)
+                brush.setColor(QColor("red")); pen.setColor(QColor("darkred")); pen.setWidth(6)
             elif i == self.selected_origin:
-                brush.setColor(QColor("green")); pen.setColor(QColor("darkgreen")); pen.setWidth(2)
+                brush.setColor(QColor("Goldenrod")); pen.setColor(QColor("Goldenrod")); pen.setWidth(6)
             elif i == self.selected_destination:
-                brush.setColor(QColor("red")); pen.setColor(QColor("darkred")); pen.setWidth(2)
+                brush.setColor(QColor("Tomato")); pen.setColor(QColor("Tomato")); pen.setWidth(6)
             self.graphics_scene.addEllipse(x - point_size/2, y - point_size/2, point_size, point_size, pen, brush)
 
             if self.check_num_vertices.isChecked():
@@ -545,7 +548,7 @@ class SistemaNavegacaoApp(QMainWindow):
                 text_item.setPos(x + point_size/2, y + point_size/2)
         
         if self.current_path_ids:
-            path_pen = QPen(QColor("blue"), 2.5)
+            path_pen = QPen(QColor("Orange"), 4.5)
             for i in range(len(self.current_path_ids) - 1):
                 p1_id, p2_id = self.current_path_ids[i], self.current_path_ids[i+1]
                 if p1_id < len(self.vertices_coords) and p2_id < len(self.vertices_coords):
