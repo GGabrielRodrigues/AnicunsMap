@@ -22,6 +22,13 @@ Histórico de alterações feitas nessa branch.
 ## Commit 3
 
 * Adição do *run_app.bat* e exclusão do *build_and_run.bat*:
+
   * Para resolver o problema da *integracao.dll* estar sendo compilada em 32bits por conta de versões desatualizadas do MinGW, agora essa dll já vai ficar compilada em 64bits, sem a necessidade de compilar. Assim, o *.bat* que rodava a aplicação não mais compila ela. Eu não sei se isso está funcionando para todas as máquinas, então eu peço que testem isso rápido para podermos resolver logo se estiver com problema;
   * Outra feature desse novo *run_app.bat* é que ele já faz automaticamente todo o processo de criar ambiente virtual, ativar ambiente virtual, baixar pyside6 e depois rodar: agora, tudo isso é feito simplesmente rodando esse *.bat*;
   * Ainda falta fazer esse processo para o Linux, mas eu não sei direito como funciona
+
+  ## Commit 4
+* Alteração na cor das bordas de roxo para laranja;
+* Mudanças posição das caixas no painel esquerdo, quis facilitar o entendimento e uso da interface;
+* Adição da feature de inserir vértices de origem e destino por ID;
+* Alteração do mapa inicial para o do câmpus 2 da UFG (não sei se pode fazer isso, vou deixar assim só por enquanto)

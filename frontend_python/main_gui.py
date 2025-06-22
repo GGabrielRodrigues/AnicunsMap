@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                                QHBoxLayout, QPushButton, QLabel, QComboBox,
                                QCheckBox, QSlider, QTableWidget, QTableWidgetItem,
                                QGraphicsView, QGraphicsScene, QScrollArea, QMessageBox, QHeaderView,
-                               QGroupBox, QRadioButton, QFileDialog, QGraphicsLineItem) 
+                               QGroupBox, QRadioButton, QFileDialog, QGraphicsLineItem, QLineEdit) 
 from PySide6.QtGui import QPixmap, QColor, QPen, QBrush, QFont, QPainter, QCursor, QClipboard, QTransform
 from PySide6.QtCore import Qt, QPointF, QRectF, QTimer
 
@@ -201,8 +201,8 @@ class SistemaNavegacaoApp(QMainWindow):
         self.zoom_factor = 1.25 
 
         self.init_ui()
-        anicuns_osm_path = os.path.join(DATA_DIR, 'anicuns.osm')
-        self.load_map_data(anicuns_osm_path)
+        ufg_osm_path = os.path.join(DATA_DIR, 'Campus2UFG&Regiao.osm')
+        self.load_map_data(ufg_osm_path)
 
         self.current_path_ids = []
         self.path_animation_timer = QTimer(self) # O timer para a animação
@@ -245,6 +245,58 @@ class SistemaNavegacaoApp(QMainWindow):
             self.update_map_display() # Isso redesenhará o caminho completo
 
     # -------------------------------------------------------------
+
+    def apply_text_selection(self):
+        origin_text = self.origin_input.text()
+        destination_text = self.destination_input.text()
+
+        new_origin = -1
+        new_destination = -1
+
+        # Validação da Origem
+        if origin_text:
+            try:
+                num = int(origin_text)
+                if 0 <= num < self.total_vertices:
+                    new_origin = num
+                else:
+                    QMessageBox.warning(self, "Entrada Inválida", f"ID de Origem '{origin_text}' está fora do intervalo válido (0 a {self.total_vertices - 1}).")
+                    self.origin_input.clear() # Limpa a caixa de texto para nova entrada
+                    return
+            except ValueError:
+                QMessageBox.warning(self, "Entrada Inválida", f"ID de Origem '{origin_text}' não é um número inteiro válido.")
+                self.origin_input.clear()
+                return
+
+        # Validação do Destino
+        if destination_text:
+            try:
+                num = int(destination_text)
+                if 0 <= num < self.total_vertices:
+                    new_destination = num
+                else:
+                    QMessageBox.warning(self, "Entrada Inválida", f"ID de Destino '{destination_text}' está fora do intervalo válido (0 a {self.total_vertices - 1}).")
+                    self.destination_input.clear()
+                    return
+            except ValueError:
+                QMessageBox.warning(self, "Entrada Inválida", f"ID de Destino '{destination_text}' não é um número inteiro válido.")
+                self.destination_input.clear()
+                return
+
+        # Atualiza as seleções internas do aplicativo
+        # Se o usuário inseriu um valor, usa esse valor. Caso contrário, mantém o que já estava ou -1.
+        self.selected_origin = new_origin if new_origin != -1 else self.selected_origin
+        self.selected_destination = new_destination if new_destination != -1 else self.selected_destination
+
+        # Se ambos os campos foram preenchidos e são válidos, ou se um deles foi preenchido,
+        # atualiza a UI e o mapa.
+        if new_origin != -1 or new_destination != -1:
+            self.update_ui_selections()
+            self.update_map_display()
+            self.statusBar().showMessage(f"Seleção por texto aplicada. Clique 'Traçar Menor Caminho'. Origem={self.selected_origin}, Destino={self.selected_destination}") # MUDANÇA AQUI!
+            QApplication.processEvents() # ADICIONE ESTA LINHA AQUI!
+        else:
+            self.statusBar().showMessage("Nenhum ID de vértice válido inserido para seleção.")
 
     def refresh_graph_data_from_c(self):
         # Resetar dados existentes
@@ -313,7 +365,7 @@ class SistemaNavegacaoApp(QMainWindow):
         self.controls_layout.addWidget(QLabel("<b>Visualização:</b>"))
         self.color_combo = QComboBox()
         self.color_combo.addItems(["Gray", "DarkGray", "LightGray"])
-        self.color_combo.setCurrentText("DarkGray")
+        self.color_combo.setCurrentText("LightGray")
         self.color_combo.currentIndexChanged.connect(self.update_map_display)
         self.controls_layout.addWidget(self.color_combo)
         
@@ -338,6 +390,51 @@ class SistemaNavegacaoApp(QMainWindow):
         self.controls_layout.addSpacing(10)
         
         self.controls_layout.addSpacing(10)
+        
+
+        # ==============================================================
+        # AQUI É O NOVO LOCAL PARA OS BLOCOS MOVIDOS:
+        # COLE O BLOCO 1 (SEÇÃO DE SELEÇÃO POR ID) AQUI:
+
+        self.controls_layout.addWidget(QLabel("<b>Dijkstra:</b>")) # Título da seção Dijkstra
+
+        self.vertex_selection_group_box = QGroupBox("Selecionar Vértices por ID")
+        self.vertex_selection_layout = QHBoxLayout()
+        self.origin_input = QLineEdit()
+        self.origin_input.setPlaceholderText("ID Origem")
+        self.vertex_selection_layout.addWidget(self.origin_input)
+        self.destination_input = QLineEdit()
+        self.destination_input.setPlaceholderText("ID Destino")
+        self.vertex_selection_layout.addWidget(self.destination_input)
+        self.apply_selection_btn = QPushButton("Aplicar")
+        self.apply_selection_btn.clicked.connect(self.apply_text_selection)
+        self.vertex_selection_layout.addWidget(self.apply_selection_btn)
+        self.vertex_selection_group_box.setLayout(self.vertex_selection_layout)
+        self.controls_layout.addWidget(self.vertex_selection_group_box) # Adiciona a caixa de grupo
+
+        # RÓTULOS DE STATUS DA SELEÇÃO (self.origin_label, self.dest_label)
+        self.origin_label = QLabel("Origem: Não selecionado")
+        self.dest_label = QLabel("Destino: Não selecionado")
+        self.controls_layout.addWidget(self.origin_label)
+        self.controls_layout.addWidget(self.dest_label)
+
+        self.controls_layout.addSpacing(5)
+
+        # COLE O BLOCO 2 (BOTÃO TRAÇAR MENOR CAMINHO) AQUI:
+        self.calculate_path_btn = QPushButton("Traçar Menor Caminho")
+        self.calculate_path_btn.clicked.connect(self.calculate_shortest_path)
+        self.calculate_path_btn.setEnabled(False)
+        self.controls_layout.addWidget(self.calculate_path_btn) # Adiciona o botão
+
+        self.reset_btn = QPushButton("Resetar Seleção")
+        self.reset_btn.clicked.connect(self.reset_selections)
+        self.controls_layout.addWidget(self.reset_btn)
+
+
+        self.controls_layout.addSpacing(10) # Adiciona um espaçamento para separar do Modo de Edição
+        # ==============================================================
+
+
         
         # Controles de Edição (RF05)
         self.edit_group_box = QGroupBox("Modo de Edição")
@@ -364,22 +461,11 @@ class SistemaNavegacaoApp(QMainWindow):
         self.controls_layout.addWidget(self.edit_group_box)
         self.controls_layout.addSpacing(10)
 
-        self.controls_layout.addWidget(QLabel("<b>Dijkstra:</b>"))
-        self.origin_label = QLabel("Origem: Não selecionado")
-        self.dest_label = QLabel("Destino: Não selecionado")
-        self.controls_layout.addWidget(self.origin_label)
-        self.controls_layout.addWidget(self.dest_label)
+        # ESTAS SÃO AS LINHAS QUE EXIBEM O STATUS ATUAL DE ORIGEM/DESTINO
+        # VAMOS ADICIONAR UM PEQUENO ESPAÇO PARA SEPARAR VISUALMENTE
+        self.controls_layout.addSpacing(5) # Adiciona um pequeno espaço
 
-        self.calculate_path_btn = QPushButton("Traçar Menor Caminho")
-        self.calculate_path_btn.clicked.connect(self.calculate_shortest_path)
-        self.calculate_path_btn.setEnabled(False)
-        self.controls_layout.addWidget(self.calculate_path_btn)
-
-        self.copy_image_btn = QPushButton("Copiar Imagem do Mapa")
-        self.copy_image_btn.clicked.connect(self.copy_map_to_clipboard)
-        self.controls_layout.addWidget(self.copy_image_btn)
-        self.controls_layout.addSpacing(10)
-
+        # ... (o resto da seção Dijkstra) ...
         self.controls_layout.addWidget(QLabel("<b>Informações do Caminho:</b>"))
         self.total_dist_label = QLabel("Distância Total: --")
         self.controls_layout.addWidget(self.total_dist_label)
@@ -397,11 +483,12 @@ class SistemaNavegacaoApp(QMainWindow):
         self.controls_layout.addWidget(self.processing_time_label)
         self.explored_nodes_label = QLabel("Nós Explorados: --")
         self.controls_layout.addWidget(self.explored_nodes_label)
+
         self.controls_layout.addSpacing(10)
 
-        self.reset_btn = QPushButton("Resetar Seleção")
-        self.reset_btn.clicked.connect(self.reset_selections)
-        self.controls_layout.addWidget(self.reset_btn)
+        self.copy_image_btn = QPushButton("Copiar Imagem do Mapa")
+        self.copy_image_btn.clicked.connect(self.copy_map_to_clipboard)
+        self.controls_layout.addWidget(self.copy_image_btn)
 
         self.exit_btn = QPushButton("Sair")
         self.exit_btn.clicked.connect(self.close)
@@ -574,7 +661,7 @@ class SistemaNavegacaoApp(QMainWindow):
         point_size = self.point_size_slider.value()
         for i, (x, y) in enumerate(self.vertices_coords):
             brush = QBrush(QColor(self.color_combo.currentText().lower()))
-            pen = QPen(QColor("Indigo"), 0.35)
+            pen = QPen(QColor("orange"), 0.35)
             if i == self.first_edge_vertex:
                 brush.setColor(QColor("red")); pen.setColor(QColor("darkred")); pen.setWidth(6)
             elif i == self.selected_origin:
