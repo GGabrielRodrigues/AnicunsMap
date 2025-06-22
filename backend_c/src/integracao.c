@@ -291,7 +291,7 @@ void parse_osm(const char* filename) {
                 double lat = atof(lat_str);
                 double lon = atof(lon_str);
                 if (lat >= MIN_LAT && lat <= MAX_LAT && lon >= MIN_LON && lon <= MAX_LON) {
-                    printf("DEBUG_OSM_PARSER: No ID=%s (%.6f, %.6f) DENTRO DA AREA DE CORTE.\n", id_str, lat, lon);
+                    
 
                     if (total_nodes < MAX_NODES) {
                         nodes[total_nodes].id_original = atoll(id_str);
@@ -300,12 +300,12 @@ void parse_osm(const char* filename) {
                         converter_para_utm(nodes[total_nodes].lat, nodes[total_nodes].lon, &nodes[total_nodes].x, &nodes[total_nodes].y);
                         nodes[total_nodes].id_interno = total_nodes;
                         total_nodes++;
-                        printf("DEBUG_OSM_PARSER: No %lld adicionado (interno: %d). Total de nos: %d\n", nodes[total_nodes-1].id_original, nodes[total_nodes-1].id_interno, total_nodes);
+                        
                     } else {
-                        printf("DEBUG_OSM_PARSER: LIMITE MAX_NODES (%d) ATINGIDO. Ignorando no %s.\n", MAX_NODES, id_str);
+                       
                     }
                 } else {
-                    printf("DEBUG_OSM_PARSER: No ID=%s (%.6f, %.6f) FORA DA AREA DE CORTE.\n", id_str, lat, lon);
+                    
                 }
             }
         }
@@ -313,19 +313,15 @@ void parse_osm(const char* filename) {
     fclose(f);
 
     // ================== DEBUG ANTES E DEPOIS ==================
-    printf("\n--- DEBUG C: COORDENADAS UTM CRUAS (ANTES DE reduzirEscala) ---\n");
     for (int i = 0; i < 10 && i < total_nodes; i++) {
         printf("Nó %d: (X=%.2f, Y=%.2f)\n", i, nodes[i].x, nodes[i].y);
     }
-    printf("------------------------------------------------------------\n");
     
     reduzirEscala(nodes, total_nodes, 2);
 
-    printf("\n--- DEBUG C: COORDENADAS (APÓS reduzirEscala) ---\n");
     for (int i = 0; i < 10 && i < total_nodes; i++) {
         printf("Nó %d: (X=%.2f, Y=%.2f)\n", i, nodes[i].x, nodes[i].y);
     }
-    printf("--------------------------------------------------\n");
     // =========================================================
 
     if (total_nodes > 0) {

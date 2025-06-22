@@ -31,4 +31,9 @@ Histórico de alterações feitas nessa branch.
 * Alteração na cor das bordas de roxo para laranja;
 * Mudanças posição das caixas no painel esquerdo, quis facilitar o entendimento e uso da interface;
 * Adição da feature de inserir vértices de origem e destino por ID;
-* Alteração do mapa inicial para o do câmpus 2 da UFG (não sei se pode fazer isso, vou deixar assim só por enquanto)
+* Alteração do mapa inicial para o do câmpus 2 da UFG (não sei se pode fazer isso, vou deixar assim só por enquanto);
+
+
+* ## Commit 4.1
+* Remoção das mensagens de debug;
+* Criação do *compila_dll.bat*: arquivo que deve ser executado somente se alguma alteração for feita nos arquivos .c do backend (muito provavelmente isso nem vai precisar ser usado, mas tá aí)
