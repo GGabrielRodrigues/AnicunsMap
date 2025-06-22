@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                                QGraphicsView, QGraphicsScene, QScrollArea, QMessageBox, QHeaderView,
                                QGroupBox, QRadioButton, QFileDialog, QGraphicsLineItem) 
 from PySide6.QtGui import QPixmap, QColor, QPen, QBrush, QFont, QPainter, QCursor, QClipboard, QTransform
-from PySide6.QtCore import Qt, QPointF, QRectF
+from PySide6.QtCore import Qt, QPointF, QRectF, QTimer
 
 # --- 1. Configuração e Carregamento da Biblioteca C ---
 if sys.platform.startswith('linux'):
@@ -203,6 +203,48 @@ class SistemaNavegacaoApp(QMainWindow):
         self.init_ui()
         anicuns_osm_path = os.path.join(DATA_DIR, 'anicuns.osm')
         self.load_map_data(anicuns_osm_path)
+
+        self.current_path_ids = []
+        self.path_animation_timer = QTimer(self) # O timer para a animação
+        self.path_animation_timer.timeout.connect(self.animate_path_step) # Conecta o timeout a um método
+        self.path_animation_step = 0 # O índice do segmento do caminho a ser desenhado
+        self.animated_path_items = [] # Lista para armazenar os itens de linha desenhados na animação
+
+         # --------------- ADICIONE AS NOVAS FUNÇÕES AQUI ---------------
+
+    def stop_path_animation(self):
+        if self.path_animation_timer.isActive():
+            self.path_animation_timer.stop() # Para o timer
+        
+        # Remove os itens de linha da animação da cena
+        for item in self.animated_path_items: #
+            self.graphics_scene.removeItem(item) #
+        self.animated_path_items = [] # Limpa a lista
+        self.path_animation_step = 0 # Reseta o contador
+
+    def animate_path_step(self):
+        if self.path_animation_step < len(self.current_path_ids) - 1:
+            p1_id = self.current_path_ids[self.path_animation_step]
+            p2_id = self.current_path_ids[self.path_animation_step + 1]
+
+            if p1_id < len(self.vertices_coords) and p2_id < len(self.vertices_coords):
+                x1, y1 = self.vertices_coords[p1_id]
+                x2, y2 = self.vertices_coords[p2_id]
+                
+                path_pen = QPen(QColor("orange"), 3) # Cor e espessura do path animado
+                path_pen.setCapStyle(Qt.RoundCap)
+                
+                line_item = self.graphics_scene.addLine(x1, y1, x2, y2, path_pen)
+                self.animated_path_items.append(line_item)
+            
+            self.path_animation_step += 1
+            self.graphics_scene.update() 
+        else:
+            self.stop_path_animation()
+            self.statusBar().showMessage("Animação do caminho concluída.")
+            self.update_map_display() # Isso redesenhará o caminho completo
+
+    # -------------------------------------------------------------
 
     def refresh_graph_data_from_c(self):
         # Resetar dados existentes
@@ -525,7 +567,7 @@ class SistemaNavegacaoApp(QMainWindow):
                     mid_x = (x1 + x2) / 2
                     mid_y = (y1 + y2) / 2
                     text_item = self.graphics_scene.addText(str(int(weight)), font)
-                    text_item.setDefaultTextColor(QColor("darkblue"))
+                    text_item.setDefaultTextColor(QColor("orange"))
                     text_rect = text_item.boundingRect()
                     text_item.setPos(mid_x - text_rect.width() / 2, mid_y - text_rect.height() / 2)
 
@@ -547,7 +589,7 @@ class SistemaNavegacaoApp(QMainWindow):
                 text_item = self.graphics_scene.addText(str(i), font)
                 text_item.setPos(x + point_size/2, y + point_size/2)
         
-        if self.current_path_ids:
+        if self.current_path_ids and not self.path_animation_timer.isActive():
             path_pen = QPen(QColor("Orange"), 4.5)
             for i in range(len(self.current_path_ids) - 1):
                 p1_id, p2_id = self.current_path_ids[i], self.current_path_ids[i+1]
@@ -680,6 +722,11 @@ class SistemaNavegacaoApp(QMainWindow):
         self.statusBar().showMessage("Calculando menor caminho...")
         QApplication.processEvents()
 
+        # Limpa qualquer animação anterior e resultados visuais
+        self.stop_path_animation() # Novo método para parar animação
+        self.reset_dijkstra_results()
+        self.update_map_display() # Limpa o caminho desenhado anteriormente
+
         path_buffer = PathArray()
         try:
             result = lib.dijkstra_gui(self.selected_origin, self.selected_destination, path_buffer, MAX_PATH_LEN)
@@ -691,19 +738,27 @@ class SistemaNavegacaoApp(QMainWindow):
             QMessageBox.information(self, "Caminho Não Encontrado", f"Não foi possível encontrar um caminho entre {self.selected_origin} e {self.selected_destination}.")
             self.statusBar().showMessage("Caminho não encontrado.")
         else:
-            self.total_dist_label.setText(f"Distância Total: {result.distancia_total:.2f} m") # unidade de medida
+            self.total_dist_label.setText(f"Distância Total: {result.distancia_total:.2f} m")
             self.num_vertices_path_label.setText(f"Vértices na Rota: {result.path_len}")
             self.current_path_ids = list(path_buffer[:result.path_len])
             self.path_sequence_label.setText(f"Rota: {' -> '.join(map(str, self.current_path_ids))}")
             self.processing_time_label.setText(f"Tempo de Processamento: {result.tempo_processamento:.6f} s")
             self.explored_nodes_label.setText(f"Nós Explorados: {result.num_nos_explorados}")
-            self.update_map_display()
-            self.statusBar().showMessage("Caminho calculado e exibido.")
+            
+            # --- INICIAR ANIMAÇÃO DO PATH AQUI ---
+            self.path_animation_step = 0 # Começa do primeiro segmento
+            self.animated_path_items = [] # Limpa a lista de itens de linha animados
+            # Define o intervalo do timer em milissegundos (ex: 50ms para uma animação rápida, 200ms para lenta)
+            self.path_animation_timer.start(20) # 75 milissegundos por segmento
+
+            self.statusBar().showMessage("Caminho calculado. Iniciando animação...")
 
     def reset_selections(self):
         self.selected_origin = -1
         self.selected_destination = -1
         self.update_ui_selections()
+        self.stop_path_animation() # CHAME AQUI PARA PARAR QUALQUER ANIMAÇÃO PENDENTE
+        self.reset_dijkstra_results() # Isso já limpa current_path_ids e update_map_display remove o path
         self.update_map_display()
         self.statusBar().showMessage("Seleção e resultados reiniciados.")
 
