@@ -46,7 +46,8 @@ TrabalhoFinalAED2/
 │   ├── assets/
 │   ├── venv/
 │   ├── main_gui.py
-│   └── requirements.txt
+│   ├── requirements.txt
+│   └──style.qss
 ├── .gitattributes
 ├── README.md
 ├── build_and_run.sh
@@ -89,17 +90,16 @@ Com os pré-requisitos atendidos, basta executar um único script. Não é neces
     > **Nota:** Na primeira vez que executar, talvez seja necessário dar permissão de execução ao script com o comando: `chmod +x build_and_run.sh`.
     
 * **Para Windows:**
-    Execute o arquivo `run_app.bat` (ou `build_and_run.bat`, dependendo da versão do projeto) com um duplo-clique ou pelo terminal.
+    Execute o arquivo `interface.bat` com um duplo-clique ou pelo terminal.
     ```cmd
-    run_app.bat
+    interface.bat
     ```
     Este script irá automaticamente:
     1.  Verificar se um ambiente virtual existe e, se não, irá criá-lo.
     2.  Ativar o ambiente virtual.
-    3.  Instalar as dependências listadas no `requirements.txt`.
-    4.  Iniciar a aplicação gráfica utilizando a biblioteca `integracao_lib.dll` **pré-compilada**.
+    3.  Iniciar a aplicação gráfica utilizando a biblioteca `integracao_lib.dll` **pré-compilada**.
 
-    > **Nota para Desenvolvedores Windows:** O script principal **não recompila** o código C. Se você fizer qualquer alteração nos arquivos do backend (`.c` ou `.h`), você deve executar o script `compila_dll.bat` manualmente **antes** de rodar `run_app.bat` para que suas mudanças tenham efeito.
+    > **Nota para Desenvolvedores Windows:** O script principal **não recompila** o código C. Se você fizer qualquer alteração nos arquivos do backend (`.c` ou `.h`), você deve executar o script `compila_dll.bat` manualmente **antes** de rodar `interface.bat` para que suas mudanças tenham efeito.
 
 ---
 
