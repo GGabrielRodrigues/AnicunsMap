@@ -1,8 +1,10 @@
-AnicunsMap - Sistema de Navegação Dijkstra
+# AnicunsMap - Sistema de Navegação Dijkstra
 
 ---
 
 Sistema de navegação interativo que utiliza o algoritmo de Dijkstra para calcular o menor caminho entre dois pontos em um mapa real extraído do OpenStreetMap. O cálculo de rotas é realizado por um backend em **C**, e a visualização gráfica e interação do usuário são gerenciadas com a biblioteca PySide6, sendo assim um frontend em Python.
+
+Segue acesso a documentação completa: link
 
 ---
 
@@ -68,7 +70,7 @@ Com os pré-requisitos atendidos, basta executar um único script. Não é neces
     5.  Iniciar a aplicação gráfica.
 
     > **Nota:** Na primeira vez que executar, talvez seja necessário dar permissão de execução ao script com o comando: `chmod +x build_and_run.sh`.
-
+    
 * **Para Windows:**
     Execute o arquivo `run_app.bat` (ou `build_and_run.bat`, dependendo da versão do projeto) com um duplo-clique ou pelo terminal.
     ```cmd
