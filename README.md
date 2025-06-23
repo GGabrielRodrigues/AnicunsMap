@@ -26,16 +26,33 @@ Segue acesso a documentação completa: link
 * Dados no formato OpenStreetMap (.osm)
 
 ## Estrutura de Pastas 
+O projeto é organizado em uma estrutura de pastas lógica que separa o backend, o frontend e os dados, facilitando a navegação e a manutenção.
+```
 TrabalhoFinalAED2/
 ├── backend_c/
-│   ├── src/ (integracao.c, integracao.h, main_test.c)
-│   └── lib/ (biblioteca compilada)
+│   ├── build/
+│   │   └── main_test
+│   ├── lib/
+│   │   ├── integracao_lib.dll
+│   │   └── integracao_lib.so
+│   └── src/
+│       ├── integracao.c
+│       ├── integracao.h
+│       └── main_test.c
+├── data/
+│   ├── Campus2UFG&Regiao.osm
+│   └── anicuns.osm
 ├── frontend_python/
+│   ├── assets/
+│   ├── venv/
 │   ├── main_gui.py
-│   └── assets/
-├── data/ (mapas .osm e .poly)
-├── build_and_run.sh / .bat
-└── README.md
+│   └── requirements.txt
+├── .gitattributes
+├── README.md
+├── build_and_run.sh
+├── compila_dll.bat
+└── interface.bat
+```
 
 ## Execução 
 Graças aos scripts de automação, colocar o AnicunsMap para funcionar é um processo direto. Os scripts cuidam da criação de ambientes virtuais, instalação de dependências, compilação e execução.
