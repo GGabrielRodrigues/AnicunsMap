@@ -397,13 +397,9 @@ void adicionarArestaAdj(int u, int v, double peso) {
     grafoAdj[u].cabeca = novoNo;
 }
 
-
-/**
- * @brief Constrói o grafo (lista de adjacência) a partir dos dados carregados.
- */
-void construirGrafo() {
+void liberar_grafo() {
     if (grafoAdj != NULL) {
-        for (int i = 0; i < totalVertices; i++) {
+        for (int i = 0; i < totalVertices; i++) { // totalVertices neste ponto DEVE ser o tamanho do grafo atual
             AdjNode* noAtual = grafoAdj[i].cabeca;
             while (noAtual != NULL) {
                 AdjNode* temp = noAtual;
@@ -412,37 +408,82 @@ void construirGrafo() {
             }
         }
         free(grafoAdj);
+        grafoAdj = NULL; // Importante para evitar "double free"
+    }
+    // Também resetar contadores globais relacionados ao grafo
+    totalVertices = 0;
+    totalArestas = 0;
+    total_nodes = 0; // Resetar para o proximo parse_osm
+    total_ways = 0; // Resetar para o proximo parse_osm
+}
+
+
+/**
+ * @brief Constrói o grafo (lista de adjacência) a partir dos dados carregados.
+ */
+
+void construirGrafo() {
+    // NÃO libere o grafo aqui. A liberação deve acontecer ANTES de carregar um novo mapa.
+    // O grafo adjacente sera alocado fresh aqui.
+
+    // Realoque grafoAdj apenas se totalVertices mudou drasticamente (ou sempre aloque fresh)
+    // A forma mais segura eh sempre free e malloc quando necessario, mas ja fazemos isso.
+
+    // Alocar grafoAdj
+    grafoAdj = (AdjList*) malloc(totalVertices * sizeof(AdjList)); // totalVertices JA EH O NOVO VALOR
+    if (grafoAdj == NULL) {
+        perror("Erro ao alocar memoria para o grafoAdj");
+        return;
     }
 
-    grafoAdj = (AdjList*) malloc(totalVertices * sizeof(AdjList));
     for (int i = 0; i < totalVertices; i++) {
         grafoAdj[i].cabeca = NULL;
     }
 
-    totalArestas = 0;
+    // totalArestas (do grafo construído) pode ser resetado aqui, mas o totalArestas para arestas_poly
+    // eh atualizado em carregarPoly. Vamos usar um contador temp para arestas_poly
+    int current_poly_edges_count = 0;
 
-    for (int i = 0; i < total_ways; i++) {
-        for (int j = 0; j < ways[i].count - 1; j++) {
-            if (totalArestas >= MAX_ARESTAS) break;
 
-            int u = ways[i].node_ids[j];
-            int v = ways[i].node_ids[j + 1];
+    // As arestas sao lidas de arestas_poly, que foi populado por carregarPoly
+    // No entanto, construirGrafo usa 'ways' e 'nodes' que vem de parse_osm.
+    // Se a funcao carregarPoly for chamada sem parse_osm, pode haver inconsistencia.
+    // PRECISAMOS ALINHAR AS FONTES DE DADOS.
 
-            if (u >= 0 && u < totalVertices && v >= 0 && v < totalVertices) {
-                // Adiciona a aresta na nossa lista para exibição
-                arestas_poly[totalArestas].orig = u;
-                arestas_poly[totalArestas].dest = v;
-                arestas_poly[totalArestas].is_oneway = ways[i].is_oneway;
-                totalArestas++;
-                
-                // Adiciona a aresta na lista de adjacência para o Dijkstra
-                double dist = calcDist(vertices[u].x, vertices[u].y, vertices[v].x, vertices[v].y);
-                adicionarArestaAdj(u, v, dist); // Sempre adiciona no sentido da via
+    // O seu construirGrafo atual está construindo o grafo de adjacência
+    // A PARTIR DOS DADOS DO OSM (ways e nodes), não do .poly diretamente.
+    // Isso é um problema de fluxo.
+    // build_and_run.sh chama parse_osm, depois carregarPoly, depois construirGrafo.
+    // Se construirGrafo usa 'ways' que é populado por parse_osm, ele deve ser chamado depois de parse_osm.
+    // Se ele constrói o grafo de adjacência a partir de 'vertices' e 'arestas_poly', ele deve ser chamado depois de carregarPoly.
+    // O SEU CÓDIGO ESTÁ MISTURANDO AS FONTES.
 
-                // Se NÃO for mão única, adiciona a aresta no sentido contrário também
-                if (ways[i].is_oneway == 0) {
-                    adicionarArestaAdj(v, u, dist);
-                }
+    // SEU CÓDIGO ATUAL EM construirGrafo:
+    // for (int i = 0; i < total_ways; i++) { // <<< USA total_ways (do OSM)
+    //     for (int j = 0; j < ways[i].count - 1; j++) { // <<< USA ways[i].node_ids (do OSM)
+    //         // ... popula arestas_poly (que deveria vir de .poly) e grafoAdj
+    //     }
+    // }
+    // ISSO ESTÁ INCONSISTENTE. `construirGrafo` DEVERIA USAR DADOS DE `vertices` e `arestas_poly`
+    // SE `carregarPoly` É QUEM DEFINE O GRAFO!
+
+    // *************** CORREÇÃO CRÍTICA NA LÓGICA DE CONSTRUÇÃO ***************
+    // A função construirGrafo DEVE construir o grafo de adjacência
+    // A PARTIR DOS DADOS LIDOS POR carregarPoly (vertices e arestas_poly).
+    // Não deve depender de 'ways' ou 'nodes' globais para a topologia do grafo.
+
+    // Mude construirGrafo para isto:
+    // (totalVertices e totalArestas ja sao do novo mapa, populados por carregarPoly)
+    for (int i = 0; i < totalArestas; i++) { // Itera pelas arestas lidas do .poly
+        int u = arestas_poly[i].orig;
+        int v = arestas_poly[i].dest;
+
+        if (u >= 0 && u < totalVertices && v >= 0 && v < totalVertices) {
+            double dist = calcDist(vertices[u].x, vertices[u].y, vertices[v].x, vertices[v].y);
+            adicionarArestaAdj(u, v, dist); // Adiciona a aresta no sentido do poly
+
+            if (arestas_poly[i].is_oneway == 0) { // Se NÃO for mão única
+                adicionarArestaAdj(v, u, dist); // Adiciona no sentido contrário
             }
         }
     }

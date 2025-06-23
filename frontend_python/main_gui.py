@@ -86,6 +86,9 @@ lib.remover_aresta.restype = ctypes.c_int
 lib.remover_vertice.argtypes = [ctypes.c_int] 
 lib.remover_vertice.restype = ctypes.c_int
 
+lib.liberar_grafo.argtypes = []
+lib.liberar_grafo.restype = None
+
 INF_C = 1e9
 
 class PannableGraphicsView(QGraphicsView):
@@ -201,8 +204,8 @@ class SistemaNavegacaoApp(QMainWindow):
         self.zoom_factor = 1.25 
 
         self.init_ui()
-        ufg_osm_path = os.path.join(DATA_DIR, 'Campus2UFG&Regiao.osm')
-        self.load_map_data(ufg_osm_path)
+        anicuns_osm_path = os.path.join(DATA_DIR, 'anicuns.osm')
+        self.load_map_data(anicuns_osm_path)
 
         self.current_path_ids = []
         self.path_animation_timer = QTimer(self) # O timer para a animação
@@ -404,6 +407,7 @@ class SistemaNavegacaoApp(QMainWindow):
         self.origin_input.setPlaceholderText("ID Origem")
         self.vertex_selection_layout.addWidget(self.origin_input)
         self.destination_input = QLineEdit()
+
         self.destination_input.setPlaceholderText("ID Destino")
         self.vertex_selection_layout.addWidget(self.destination_input)
         self.apply_selection_btn = QPushButton("Aplicar")
@@ -515,6 +519,9 @@ class SistemaNavegacaoApp(QMainWindow):
     def load_map_data(self, osm_file_path): 
         # Determina o caminho do arquivo .poly a partir do nome do arquivo .osm
         # Ex: /data/mapa.osm -> /data/mapa.poly
+        
+        lib.liberar_grafo()
+
         poly_file_name = os.path.basename(osm_file_path).replace('.osm', '.poly')
         poly_file_path = os.path.join(DATA_DIR, poly_file_name)
 
@@ -916,6 +923,21 @@ class SistemaNavegacaoApp(QMainWindow):
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
+
+    # --- Carregar o Style Sheet de um arquivo externo ---
+    # Certifique-se de que 'import os' está no topo do seu arquivo.
+    qss_file_path = os.path.join(os.path.dirname(__file__), 'style.qss')
+    if os.path.exists(qss_file_path):
+        try:
+            with open(qss_file_path, 'r') as f:
+                app.setStyleSheet(f.read())
+            print(f"DEBUG: Style sheet '{qss_file_path}' carregado com sucesso.")
+        except Exception as e:
+            print(f"ERRO: Nao foi possivel carregar o style sheet '{qss_file_path}': {e}")
+    else:
+        print(f"AVISO: Arquivo de style sheet '{qss_file_path}' nao encontrado. Usando estilo padrao do sistema.")
+    # --- Fim do carregamento do Style Sheet ---
+
     window = SistemaNavegacaoApp()
     window.show()
     sys.exit(app.exec())

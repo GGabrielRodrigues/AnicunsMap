@@ -1,0 +1,192 @@
+/* style.qss */
+
+/* Variáveis de Cor (para facilitar a leitura, não são CSS variáveis reais) */
+/* Elas são comentários aqui, mas ajudam a entender a paleta. */
+/* primary_dark_bg: #222222 (fundo geral, mapa) */
+/* secondary_dark_bg: #2B2B2B (fundo de groupboxes, inputs) */
+/* text_light_gray: #E0E0E0 (texto padrão) */
+/* border_subtle: #404040 (bordas sutis) */
+/* button_dark_gray: #454545 (fundo de botoes) */
+/* button_dark_gray_hover: #555555 */
+/* highlight_orange: #FF8C00 (slider, checked radio) */
+
+/* Estilo para toda a aplicação (QApplication) */
+* {
+    background-color: #222222; /* Fundo geral mais escuro */
+    color: #E0E0E0; /* Cor do texto claro */
+    font-family: Arial, sans-serif; /* Fonte padrão */
+    font-size: 14px;
+}
+
+QMainWindow, QWidget {
+    background-color: #222222; /* Garante que os containers principais sejam escuros */
+}
+
+/* Estilo para GroupBoxes */
+QGroupBox {
+    background-color: #2B2B2B; /* Fundo levemente mais claro que o geral */
+    border: 1px solid #404040; /* Borda sutil */
+    border-radius: 5px;
+    margin-top: 1ex; /* Espaço para o título */
+    font-weight: bold;
+    padding: 5px;
+}
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    padding: 0 3px;
+    background-color: #2B2B2B; /* Fundo do título do GroupBox */
+    color: #E0E0E0;
+}
+
+/* Labels */
+QLabel {
+    color: #E0E0E0;
+    background-color: transparent;
+    padding: 2px;
+}
+/* Estilo específico para os títulos principais como "Sistema de Navegação" */
+QLabel[text*="<h2>"] {
+    color: #E0E0E0; /* Mantido branco/claro como no print */
+    font-size: 16px;
+    font-weight: bold;
+}
+/* Estilo para subtítulos como "Algoritmo de Dijkstra" */
+QLabel[text*="<h3>"] {
+    color: #E0E0E0; /* Mantido branco/claro */
+    font-size: 16px;
+    font-weight: bold;
+}
+/* Estilo para cabeçalhos de seção como "Controle de Mapa:" */
+QLabel[text*="<b>"] {
+    color: #E0E0E0;
+    font-size: 14px; /* Ajuste para combinar com o resto do texto, ou 15px se preferir */
+    font-weight: bold;
+}
+
+/* Botões (QPushButton) */
+QPushButton {
+    background-color: #454545; /* Cinza escuro para os botoes */
+    color: #E0E0E0; /* Texto claro */
+    border: 1px solid #555555; /* Borda um pouco mais clara para destacar */
+    border-radius: 5px;
+    padding: 5px 10px;
+    margin: 2px;
+    font-size: 13px; /* Pode ajustar o tamanho da fonte */
+}
+QPushButton:hover {
+    background-color: #555555; /* Levemente mais claro no hover */
+}
+QPushButton:pressed {
+    background-color: #383838; /* Um pouco mais escuro no pressed */
+}
+QPushButton:disabled {
+    background-color: #303030;
+    color: #808080;
+    border-color: #404040;
+}
+
+/* Caixas de Texto (QLineEdit) */
+QLineEdit {
+    background-color: #2B2B2B; /* Fundo igual ao GroupBox */
+    border: 1px solid #404040; /* Borda sutil */
+    border-radius: 3px;
+    padding: 3px;
+    color: #E0E0E0;
+    selection-background-color: #FF8C00; /* Laranja para selecao de texto */
+    max-width: 150px;
+}
+QLineEdit:focus { /* Borda mais visivel quando em foco */
+    border: 1px solid #FFA500; /* Laranja mais vibrante quando focado */
+}
+
+/* ComboBox (Caixa de Opcoes) */
+QComboBox {
+    background-color: #2B2B2B;
+    border: 1px solid #404040;
+    border-radius: 3px;
+    padding: 2px;
+    color: #E0E0E0;
+    max-width: 150px;
+}
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 15px;
+    border-left-width: 1px;
+    border-left-color: #404040;
+    border-left-style: solid;
+    border-top-right-radius: 3px;
+    border-bottom-right-radius: 3px;
+}
+QComboBox::down-arrow {
+    image: url(arrow_down.png); /* Se você tiver uma imagem de seta personalizada */
+    /* Ou usar a cor do texto para uma seta em texto/vetor */
+}
+QComboBox QAbstractItemView { /* Estilo para o dropdown da combobox */
+    background-color: #2B2B2B;
+    color: #E0E0E0;
+    selection-background-color: #FF8C00;
+    border: 1px solid #404040;
+}
+
+/* CheckBox e RadioButton */
+QCheckBox, QRadioButton {
+    background-color: transparent; /* Fundo transparente */
+    color: #E0E0E0;
+    padding: 3px;
+}
+QCheckBox::indicator, QRadioButton::indicator {
+    width: 14px;
+    height: 14px;
+    border-radius: 7px; /* Para RadioButton ser redondo */
+    border: 1px solid #E0E0E0; /* Borda cinza clara */
+    background-color: #2B2B2B; /* Fundo cinza escuro da bolinha */
+}
+QCheckBox::indicator:checked, QRadioButton::indicator:checked {
+    background-color: #FF8C00; /* Laranja quando checado/selecionado */
+    border: 1px solid #FF8C00;
+}
+QCheckBox::indicator:hover, QRadioButton::indicator:hover {
+    border-color: #FF8C00; /* Laranja no hover */
+}
+QRadioButton::indicator:checked {
+    /* Cor interna da bolinha do RadioButton (se o design padrao nao mostrar laranja preenchido) */
+    /* Pode ser mais complexo dependendo do tema do OS, mas o 'background-color' geralmente funciona. */
+}
+
+/* Slider (Barrinha de Tamanho dos Vértices) */
+QSlider::groove:horizontal {
+    border: 1px solid #404040; /* Borda cinza sutil */
+    height: 8px;
+    background: #2B2B2B; /* Fundo do trilho nao preenchido */
+    margin: 2px 0;
+    border-radius: 4px;
+}
+QSlider::handle:horizontal {
+    background: #FF8C00; /* Laranja para a bolinha */
+    border: 2px #FF8C00;
+    width: 18px;
+    height: 18px;
+    margin: -5px 0;
+    border-radius: 9px;
+}
+QSlider::sub-page:horizontal {
+    background: #FF8C00; /* Laranja para a parte preenchida */
+    border: 2px #FF8C00;
+    height: 8px;
+    border-radius: 4px;
+}
+
+/* Status Bar */
+QStatusBar {
+    background-color: #2B2B2B;
+    color: #E0E0E0;
+    border-top: 1px solid #404040;
+}
+
+/* QGraphicsView (fundo do mapa) */
+QGraphicsView {
+    background-color: #222222; /* Fundo do mapa */
+    border: 1px solid #404040; /* Borda sutil ao redor do mapa */
+}
