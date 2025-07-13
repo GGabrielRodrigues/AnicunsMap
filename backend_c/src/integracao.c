@@ -423,13 +423,7 @@ void liberar_grafo() {
  */
 
 void construirGrafo() {
-    // NÃO libere o grafo aqui. A liberação deve acontecer ANTES de carregar um novo mapa.
-    // O grafo adjacente sera alocado fresh aqui.
-
-    // Realoque grafoAdj apenas se totalVertices mudou drasticamente (ou sempre aloque fresh)
-    // A forma mais segura eh sempre free e malloc quando necessario, mas ja fazemos isso.
-
-    // Alocar grafoAdj
+    
     grafoAdj = (AdjList*) malloc(totalVertices * sizeof(AdjList)); // totalVertices JA EH O NOVO VALOR
     if (grafoAdj == NULL) {
         perror("Erro ao alocar memoria para o grafoAdj");
@@ -440,40 +434,8 @@ void construirGrafo() {
         grafoAdj[i].cabeca = NULL;
     }
 
-    // totalArestas (do grafo construído) pode ser resetado aqui, mas o totalArestas para arestas_poly
-    // eh atualizado em carregarPoly. Vamos usar um contador temp para arestas_poly
     int current_poly_edges_count = 0;
 
-
-    // As arestas sao lidas de arestas_poly, que foi populado por carregarPoly
-    // No entanto, construirGrafo usa 'ways' e 'nodes' que vem de parse_osm.
-    // Se a funcao carregarPoly for chamada sem parse_osm, pode haver inconsistencia.
-    // PRECISAMOS ALINHAR AS FONTES DE DADOS.
-
-    // O seu construirGrafo atual está construindo o grafo de adjacência
-    // A PARTIR DOS DADOS DO OSM (ways e nodes), não do .poly diretamente.
-    // Isso é um problema de fluxo.
-    // build_and_run.sh chama parse_osm, depois carregarPoly, depois construirGrafo.
-    // Se construirGrafo usa 'ways' que é populado por parse_osm, ele deve ser chamado depois de parse_osm.
-    // Se ele constrói o grafo de adjacência a partir de 'vertices' e 'arestas_poly', ele deve ser chamado depois de carregarPoly.
-    // O SEU CÓDIGO ESTÁ MISTURANDO AS FONTES.
-
-    // SEU CÓDIGO ATUAL EM construirGrafo:
-    // for (int i = 0; i < total_ways; i++) { // <<< USA total_ways (do OSM)
-    //     for (int j = 0; j < ways[i].count - 1; j++) { // <<< USA ways[i].node_ids (do OSM)
-    //         // ... popula arestas_poly (que deveria vir de .poly) e grafoAdj
-    //     }
-    // }
-    // ISSO ESTÁ INCONSISTENTE. `construirGrafo` DEVERIA USAR DADOS DE `vertices` e `arestas_poly`
-    // SE `carregarPoly` É QUEM DEFINE O GRAFO!
-
-    // *************** CORREÇÃO CRÍTICA NA LÓGICA DE CONSTRUÇÃO ***************
-    // A função construirGrafo DEVE construir o grafo de adjacência
-    // A PARTIR DOS DADOS LIDOS POR carregarPoly (vertices e arestas_poly).
-    // Não deve depender de 'ways' ou 'nodes' globais para a topologia do grafo.
-
-    // Mude construirGrafo para isto:
-    // (totalVertices e totalArestas ja sao do novo mapa, populados por carregarPoly)
     for (int i = 0; i < totalArestas; i++) { // Itera pelas arestas lidas do .poly
         int u = arestas_poly[i].orig;
         int v = arestas_poly[i].dest;

@@ -12,7 +12,6 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
 from PySide6.QtGui import QPixmap, QColor, QPen, QBrush, QFont, QPainter, QCursor, QClipboard, QTransform
 from PySide6.QtCore import Qt, QPointF, QRectF, QTimer
 
-# --- 1. Configuração e Carregamento da Biblioteca C ---
 if sys.platform.startswith('linux'):
     LIB_NAME = 'integracao_lib.so'
 elif sys.platform.startswith('win'):
@@ -20,7 +19,6 @@ elif sys.platform.startswith('win'):
 else:
     LIB_NAME = 'integracao_lib.dylib' 
 
-# Caminho base do projeto (a pasta que contém backend_c e frontend_python)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LIB_PATH = os.path.join(BASE_DIR, 'backend_c', 'lib', LIB_NAME)
 DATA_DIR = os.path.join(BASE_DIR, 'data')
@@ -33,7 +31,6 @@ except OSError as e:
     QMessageBox.critical(None, "Erro Crítico", f"Erro ao carregar a biblioteca C: {e}\nVerifique se o arquivo '{LIB_PATH}' existe. Compile o backend C primeiro.")
     sys.exit(1)
 
-# --- 2. Mapeamento de Funções C e Estruturas ---
 class DijkstraResult(ctypes.Structure):
     _fields_ = [
         ("distancia_total", ctypes.c_double),
@@ -42,7 +39,6 @@ class DijkstraResult(ctypes.Structure):
         ("path_len", ctypes.c_int),
     ]
 
-# Definindo os tipos de argumentos e retorno para cada função C
 lib.parse_osm.argtypes = [ctypes.c_char_p]
 lib.parse_osm.restype = None
 
@@ -73,7 +69,6 @@ PathArray = ctypes.c_int * MAX_PATH_LEN
 lib.dijkstra_gui.argtypes = [ctypes.c_int, ctypes.c_int, PathArray, ctypes.c_int]
 lib.dijkstra_gui.restype = DijkstraResult
 
-# Mapeamento para funções de edição do grafo (RF05)
 lib.adicionar_vertice.argtypes = [ctypes.c_double, ctypes.c_double]
 lib.adicionar_vertice.restype = ctypes.c_int
 
@@ -95,91 +90,72 @@ class PannableGraphicsView(QGraphicsView):
     def __init__(self, scene, parent=None):
         super().__init__(scene, parent)
         self.setRenderHint(QPainter.Antialiasing)
-        self.setMouseTracking(True) # Para que mouseMoveEvent funcione mesmo sem botão pressionado
-        self.setDragMode(QGraphicsView.NoDrag) # Desativa o modo de arrastar padrão do QGraphicsView
+        self.setMouseTracking(True)
+        self.setDragMode(QGraphicsView.NoDrag)
 
         self.panning = False
-        self.last_mouse_pos = QPointF() # Armazena a última posição do mouse como QPointF
+        self.last_mouse_pos = QPointF()
 
-        self.app_instance = parent # Referência à instância de SistemaNavegacaoApp
+        self.app_instance = parent
 
-        # Desabilitar barras de rolagem padrão
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 
-        # Configurações de transformação para inicialização (garante estado limpo)
-        self.setTransform(QTransform()) # Reseta qualquer transformação pré-existente
-        self.setRenderHint(QPainter.SmoothPixmapTransform, True) # Opcional: melhora a qualidade visual
+        self.setTransform(QTransform())
+        self.setRenderHint(QPainter.SmoothPixmapTransform, True)
 
     def mousePressEvent(self, event):
-
         if event.button() == Qt.LeftButton:
-            # Lógica para seleção de vértices (chama o método da classe principal)
             if self.app_instance and hasattr(self.app_instance, 'map_clicked'):
                 self.app_instance.map_clicked(event)
-            # IMPORTANT: Não chame super().mousePressEvent(event) aqui, para que o clique esquerdo
-            # seja tratado APENAS pelo map_clicked do SistemaNavegacaoApp.
-        elif event.button() == Qt.RightButton: # Inicia o modo de pan com o botão direito
+        elif event.button() == Qt.RightButton:
             self.panning = True
-            self.last_mouse_pos = event.position() # Guarda a posição inicial do mouse (QPointF)
-            self.setCursor(QCursor(Qt.ClosedHandCursor)) # Muda o cursor para "mão fechada"
-            event.accept() # Aceita o evento para consumi-lo
+            self.last_mouse_pos = event.position()
+            self.setCursor(QCursor(Qt.ClosedHandCursor))
+            event.accept()
         else:
-            # Para outros botões (ex: roda do meio se não for usada para scroll), passa para o pai
             super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event):
-
         if self.panning:
-            current_pos = event.position() # Posição atual do mouse (QPointF)
+            current_pos = event.position()
 
-            # Calcula o delta (deslocamento) em coordenadas da viewport (pixels da tela)
             dx = current_pos.x() - self.last_mouse_pos.x()
             dy = current_pos.y() - self.last_mouse_pos.y()
 
-            # Aplica a translação diretamente na View.
-            # self.translate(dx, dy) move a "câmera" da view pelo dx, dy pixels
-            # no espaço da view. Isso faz com que a cena se mova na mesma direção
-            # visualmente.
             self.horizontalScrollBar().setValue(self.horizontalScrollBar().value() - dx)
             self.verticalScrollBar().setValue(self.verticalScrollBar().value() - dy)
 
-            self.last_mouse_pos = current_pos # Atualiza a última posição para o próximo movimento
-            event.accept() # Consome o evento
+            self.last_mouse_pos = current_pos
+            event.accept()
         else:
-            super().mouseMoveEvent(event) # Passa para o pai se não estiver paning
+            super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event):
-        # DEBUG: Verifica qual botão foi solto
-
-        if event.button() == Qt.RightButton and self.panning: # Se for o botão direito e estava paning
+        if event.button() == Qt.RightButton and self.panning:
             self.panning = False
-            self.setCursor(QCursor(Qt.ArrowCursor)) # Volta o cursor para a seta padrão
-            event.accept() # Consome o evento
+            self.setCursor(QCursor(Qt.ArrowCursor))
+            event.accept()
         else:
             super().mouseReleaseEvent(event)
 
     def wheelEvent(self, event):
-        # Lógica de Zoom (mantida como antes)
         zoom_factor = 1.25
-        if event.angleDelta().y() > 0: # Roda para cima (zoom in)
+        if event.angleDelta().y() > 0:
             scale_factor = zoom_factor
-        else: # Roda para baixo (zoom out)
+        else:
             scale_factor = 1 / zoom_factor
 
-        # Ponto de zoom no local do mouse (coordenadas da cena)
-        old_pos = self.mapToScene(event.position().toPoint()) # .toPoint() é necessário para mapToScene
+        old_pos = self.mapToScene(event.position().toPoint())
         
-        self.scale(scale_factor, scale_factor) # Aplica a escala
+        self.scale(scale_factor, scale_factor)
 
-        # Ajusta a posição da view para que o ponto sob o mouse permaneça fixo
-        new_pos = self.mapToScene(event.position().toPoint()) # .toPoint() é necessário para mapToScene
+        new_pos = self.mapToScene(event.position().toPoint())
         delta_pos = new_pos - old_pos
-        self.translate(delta_pos.x(), delta_pos.y()) # Translada a view para compensar o zoom
+        self.translate(delta_pos.x(), delta_pos.y())
 
-        event.accept() # Consome o evento para evitar rolagem padrão
+        event.accept()
 
-# --- Classe Principal da Janela ---
 class SistemaNavegacaoApp(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -208,22 +184,19 @@ class SistemaNavegacaoApp(QMainWindow):
         self.load_map_data(anicuns_osm_path)
 
         self.current_path_ids = []
-        self.path_animation_timer = QTimer(self) # O timer para a animação
-        self.path_animation_timer.timeout.connect(self.animate_path_step) # Conecta o timeout a um método
-        self.path_animation_step = 0 # O índice do segmento do caminho a ser desenhado
-        self.animated_path_items = [] # Lista para armazenar os itens de linha desenhados na animação
-
-         # --------------- ADICIONE AS NOVAS FUNÇÕES AQUI ---------------
+        self.path_animation_timer = QTimer(self)
+        self.path_animation_timer.timeout.connect(self.animate_path_step)
+        self.path_animation_step = 0
+        self.animated_path_items = []
 
     def stop_path_animation(self):
         if self.path_animation_timer.isActive():
-            self.path_animation_timer.stop() # Para o timer
+            self.path_animation_timer.stop()
         
-        # Remove os itens de linha da animação da cena
-        for item in self.animated_path_items: #
-            self.graphics_scene.removeItem(item) #
-        self.animated_path_items = [] # Limpa a lista
-        self.path_animation_step = 0 # Reseta o contador
+        for item in self.animated_path_items:
+            self.graphics_scene.removeItem(item)
+        self.animated_path_items = []
+        self.path_animation_step = 0
 
     def animate_path_step(self):
         if self.path_animation_step < len(self.current_path_ids) - 1:
@@ -234,7 +207,7 @@ class SistemaNavegacaoApp(QMainWindow):
                 x1, y1 = self.vertices_coords[p1_id]
                 x2, y2 = self.vertices_coords[p2_id]
                 
-                path_pen = QPen(QColor("orange"), 3) # Cor e espessura do path animado
+                path_pen = QPen(QColor("orange"), 3)
                 path_pen.setCapStyle(Qt.RoundCap)
                 
                 line_item = self.graphics_scene.addLine(x1, y1, x2, y2, path_pen)
@@ -245,9 +218,7 @@ class SistemaNavegacaoApp(QMainWindow):
         else:
             self.stop_path_animation()
             self.statusBar().showMessage("Animação do caminho concluída.")
-            self.update_map_display() # Isso redesenhará o caminho completo
-
-    # -------------------------------------------------------------
+            self.update_map_display()
 
     def apply_text_selection(self):
         origin_text = self.origin_input.text()
@@ -256,7 +227,6 @@ class SistemaNavegacaoApp(QMainWindow):
         new_origin = -1
         new_destination = -1
 
-        # Validação da Origem
         if origin_text:
             try:
                 num = int(origin_text)
@@ -264,14 +234,13 @@ class SistemaNavegacaoApp(QMainWindow):
                     new_origin = num
                 else:
                     QMessageBox.warning(self, "Entrada Inválida", f"ID de Origem '{origin_text}' está fora do intervalo válido (0 a {self.total_vertices - 1}).")
-                    self.origin_input.clear() # Limpa a caixa de texto para nova entrada
+                    self.origin_input.clear()
                     return
             except ValueError:
                 QMessageBox.warning(self, "Entrada Inválida", f"ID de Origem '{origin_text}' não é um número inteiro válido.")
                 self.origin_input.clear()
                 return
 
-        # Validação do Destino
         if destination_text:
             try:
                 num = int(destination_text)
@@ -286,34 +255,27 @@ class SistemaNavegacaoApp(QMainWindow):
                 self.destination_input.clear()
                 return
 
-        # Atualiza as seleções internas do aplicativo
-        # Se o usuário inseriu um valor, usa esse valor. Caso contrário, mantém o que já estava ou -1.
         self.selected_origin = new_origin if new_origin != -1 else self.selected_origin
         self.selected_destination = new_destination if new_destination != -1 else self.selected_destination
 
-        # Se ambos os campos foram preenchidos e são válidos, ou se um deles foi preenchido,
-        # atualiza a UI e o mapa.
         if new_origin != -1 or new_destination != -1:
             self.update_ui_selections()
             self.update_map_display()
-            self.statusBar().showMessage(f"Seleção por texto aplicada. Clique 'Traçar Menor Caminho'. Origem={self.selected_origin}, Destino={self.selected_destination}") # MUDANÇA AQUI!
-            QApplication.processEvents() # ADICIONE ESTA LINHA AQUI!
+            self.statusBar().showMessage(f"Seleção por texto aplicada. Clique 'Traçar Menor Caminho'. Origem={self.selected_origin}, Destino={self.selected_destination}")
+            QApplication.processEvents()
         else:
             self.statusBar().showMessage("Nenhum ID de vértice válido inserido para seleção.")
 
     def refresh_graph_data_from_c(self):
-        # Resetar dados existentes
         self.vertices_coords = []
         self.edges_data = []
         self.total_vertices = lib.get_total_vertices()
 
-        # Recarregar vértices
         x_val, y_val = ctypes.c_double(), ctypes.c_double()
         for i in range(self.total_vertices):
             lib.get_vertex_coords(i, ctypes.byref(x_val), ctypes.byref(y_val))
             self.vertices_coords.append((x_val.value, y_val.value))
 
-        # Recarregar arestas
         total_edges_from_poly = lib.get_total_edges_from_poly()
         orig_id_c, dest_id_c = ctypes.c_int(), ctypes.c_int()
         weight_c = ctypes.c_double()
@@ -324,31 +286,21 @@ class SistemaNavegacaoApp(QMainWindow):
 
         self.update_map_display()
 
-
     def init_ui(self):
-        # --- Painel Esquerdo: Controles ---
         self.controls_panel = QWidget()
         self.controls_layout = QVBoxLayout(self.controls_panel)
-        # self.controls_panel.setFixedWidth(350) 
 
-        # -------------- Alterações
-        # Agora, crie o QScrollArea e configure-o
         self.scroll_area = QScrollArea()
-        self.scroll_area.setWidgetResizable(True) # Permite que o widget interno seja redimensionado pelo scroll area
-        self.scroll_area.setWidget(self.controls_panel) # Define o controls_panel como o conteúdo do scroll area
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setWidget(self.controls_panel)
 
-         # O QScrollArea agora tem um tamanho fixo, não o controls_panel
-        self.scroll_area.setFixedWidth(350) # Defina a largura fixa para o QScrollArea
+        self.scroll_area.setFixedWidth(350)
 
-
-
-        # --------------
         self.controls_layout.addWidget(QLabel("<h1>Sistema de Navegação</h1>"))
         self.controls_layout.addWidget(QLabel("<h3>Algoritmo de Dijkstra</h3>"))
 
         self.controls_layout.addWidget(QLabel("<b>Controle de Mapa:</b>"))
         
-        # --- NOVO BLOCO PARA CARREGAR ARQUIVOS ---
         self.load_file_group_box = QGroupBox("Carregar Arquivo OSM")
         self.load_file_layout = QVBoxLayout()
 
@@ -361,7 +313,6 @@ class SistemaNavegacaoApp(QMainWindow):
 
         self.load_file_group_box.setLayout(self.load_file_layout)
         self.controls_layout.addWidget(self.load_file_group_box)
-        # --- FIM DO NOVO BLOCO ---
 
         self.controls_layout.addSpacing(10)
 
@@ -381,12 +332,12 @@ class SistemaNavegacaoApp(QMainWindow):
         self.controls_layout.addWidget(self.point_size_slider)
 
         self.check_num_vertices = QCheckBox("Numerar vértices")
-        self.check_num_vertices.setChecked(False) # Inicia desmarcado
+        self.check_num_vertices.setChecked(False)
         self.check_num_vertices.stateChanged.connect(self.update_map_display)
         self.controls_layout.addWidget(self.check_num_vertices)
 
         self.check_label_edges = QCheckBox("Rotular arestas")
-        self.check_label_edges.setChecked(False) # Inicia desmarcado
+        self.check_label_edges.setChecked(False)
         self.check_label_edges.stateChanged.connect(self.update_map_display)
         self.controls_layout.addWidget(self.check_label_edges)
         
@@ -394,12 +345,7 @@ class SistemaNavegacaoApp(QMainWindow):
         
         self.controls_layout.addSpacing(10)
         
-
-        # ==============================================================
-        # AQUI É O NOVO LOCAL PARA OS BLOCOS MOVIDOS:
-        # COLE O BLOCO 1 (SEÇÃO DE SELEÇÃO POR ID) AQUI:
-
-        self.controls_layout.addWidget(QLabel("<b>Dijkstra:</b>")) # Título da seção Dijkstra
+        self.controls_layout.addWidget(QLabel("<b>Dijkstra:</b>"))
 
         self.vertex_selection_group_box = QGroupBox("Selecionar Vértices por ID")
         self.vertex_selection_layout = QHBoxLayout()
@@ -414,9 +360,8 @@ class SistemaNavegacaoApp(QMainWindow):
         self.apply_selection_btn.clicked.connect(self.apply_text_selection)
         self.vertex_selection_layout.addWidget(self.apply_selection_btn)
         self.vertex_selection_group_box.setLayout(self.vertex_selection_layout)
-        self.controls_layout.addWidget(self.vertex_selection_group_box) # Adiciona a caixa de grupo
+        self.controls_layout.addWidget(self.vertex_selection_group_box)
 
-        # RÓTULOS DE STATUS DA SELEÇÃO (self.origin_label, self.dest_label)
         self.origin_label = QLabel("Origem: Não selecionado")
         self.dest_label = QLabel("Destino: Não selecionado")
         self.controls_layout.addWidget(self.origin_label)
@@ -424,23 +369,18 @@ class SistemaNavegacaoApp(QMainWindow):
 
         self.controls_layout.addSpacing(5)
 
-        # COLE O BLOCO 2 (BOTÃO TRAÇAR MENOR CAMINHO) AQUI:
         self.calculate_path_btn = QPushButton("Traçar Menor Caminho")
         self.calculate_path_btn.clicked.connect(self.calculate_shortest_path)
         self.calculate_path_btn.setEnabled(False)
-        self.controls_layout.addWidget(self.calculate_path_btn) # Adiciona o botão
+        self.controls_layout.addWidget(self.calculate_path_btn)
 
         self.reset_btn = QPushButton("Resetar Seleção")
         self.reset_btn.clicked.connect(self.reset_selections)
         self.controls_layout.addWidget(self.reset_btn)
 
 
-        self.controls_layout.addSpacing(10) # Adiciona um espaçamento para separar do Modo de Edição
-        # ==============================================================
-
-
+        self.controls_layout.addSpacing(10)
         
-        # Controles de Edição (RF05)
         self.edit_group_box = QGroupBox("Modo de Edição")
         self.edit_layout = QVBoxLayout()
         self.radio_nav = QRadioButton("Navegação")
@@ -465,21 +405,17 @@ class SistemaNavegacaoApp(QMainWindow):
         self.controls_layout.addWidget(self.edit_group_box)
         self.controls_layout.addSpacing(10)
 
-        # ESTAS SÃO AS LINHAS QUE EXIBEM O STATUS ATUAL DE ORIGEM/DESTINO
-        # VAMOS ADICIONAR UM PEQUENO ESPAÇO PARA SEPARAR VISUALMENTE
-        self.controls_layout.addSpacing(5) # Adiciona um pequeno espaço
+        self.controls_layout.addSpacing(5)
 
-        # ... (o resto da seção Dijkstra) ...
         self.controls_layout.addWidget(QLabel("<b>Informações do Caminho:</b>"))
         self.total_dist_label = QLabel("Distância Total: --")
         self.controls_layout.addWidget(self.total_dist_label)
         self.num_vertices_path_label = QLabel("Vértices na Rota: --")
         self.controls_layout.addWidget(self.num_vertices_path_label)
         self.path_sequence_label = QLabel("Rota: --") 
-        self.path_sequence_label.setWordWrap(True) # Para quebra de linha
+        self.path_sequence_label.setWordWrap(True)
         self.controls_layout.addWidget(self.path_sequence_label)
         
-
         self.controls_layout.addSpacing(10)
         
         self.controls_layout.addWidget(QLabel("<b>Estatísticas de Execução:</b>"))
@@ -500,15 +436,8 @@ class SistemaNavegacaoApp(QMainWindow):
         self.controls_layout.addStretch()
         self.main_layout.addWidget(self.scroll_area)
 
-        # --- Painel Direito: Área de Desenho do Mapa ---
         self.graphics_scene = QGraphicsScene()
-        # Mude esta linha para usar sua nova classe
-        self.graphics_view = PannableGraphicsView(self.graphics_scene, self) # Passa self (a instância de SistemaNavegacaoApp) como parent
-        # Remova estas linhas, elas já estão na nova classe PannableGraphicsView:
-        # self.graphics_view.setRenderHint(QPainter.Antialiasing)
-        # self.graphics_view.setMouseTracking(True)
-        # Remova esta linha, pois os eventos do mouse serão gerenciados pela subclasse:
-        # self.graphics_view.mousePressEvent = self.map_clicked
+        self.graphics_view = PannableGraphicsView(self.graphics_scene, self)
 
         self.graphics_view.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.graphics_view.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
@@ -517,9 +446,6 @@ class SistemaNavegacaoApp(QMainWindow):
         self.statusBar().showMessage("Inicializando...")
 
     def load_map_data(self, osm_file_path): 
-        # Determina o caminho do arquivo .poly a partir do nome do arquivo .osm
-        # Ex: /data/mapa.osm -> /data/mapa.poly
-        
         lib.liberar_grafo()
 
         poly_file_name = os.path.basename(osm_file_path).replace('.osm', '.poly')
@@ -528,7 +454,6 @@ class SistemaNavegacaoApp(QMainWindow):
         if not os.path.exists(osm_file_path):
             QMessageBox.critical(self, "Erro", f"Arquivo de mapa não encontrado: {osm_file_path}\nVerifique se ele existe no diretório 'data'.")
             self.statusBar().showMessage(f"Erro: {os.path.basename(osm_file_path)} não encontrado.")
-            # Limpa dados anteriores em caso de falha de carregamento
             self.graphics_scene.clear()
             self.vertices_coords = []
             self.edges_data = []
@@ -558,7 +483,6 @@ class SistemaNavegacaoApp(QMainWindow):
             self.total_vertices = lib.get_total_vertices()
             if self.total_vertices == 0:
                 QMessageBox.warning(self, "Aviso", "O mapa foi carregado, mas não contém vértices.")
-                # Limpa a exibição e os dados se o mapa estiver vazio
                 self.graphics_scene.clear()
                 self.vertices_coords = []
                 self.edges_data = []
@@ -584,22 +508,14 @@ class SistemaNavegacaoApp(QMainWindow):
             self.statusBar().showMessage(f"Mapa carregado com {self.total_vertices} vértices e {len(self.edges_data)} arestas.")
             self.current_osm_file_label.setText(f"Arquivo carregado: {os.path.basename(osm_file_path)}") 
 
-            # ================== AJUSTE INICIAL DA VISTA AO CARREGAR MAPA ==================
             full_rect = self.graphics_scene.itemsBoundingRect()
             if not full_rect.isEmpty():
-                # 1. Ajusta a view para que todo o conteúdo da cena seja visível
                 self.graphics_view.fitInView(full_rect, Qt.KeepAspectRatio)
 
-                # 2. Aplica um zoom adicional para aproximar
-                # Você pode ajustar este fator (ex: 1.2 para 20% a mais de zoom, 1.5 para 50% a mais)
-                initial_zoom_boost = 20 # Experimente com 1.1, 1.2, 1.3, etc.
+                initial_zoom_boost = 20
                 self.graphics_view.scale(initial_zoom_boost, initial_zoom_boost)
 
-                # 3. Centraliza a vista no centro da cena após o zoom
-                # Embora fitInView já centralize, um zoom adicional pode deslocar um pouco.
-                # Garantimos a centralização novamente.
-                self.graphics_view.centerOn(full_rect.center()) # Use full_rect.center() que já é um QPointF
-            # ==============================================================================
+                self.graphics_view.centerOn(full_rect.center())
 
         except Exception as e:
             QMessageBox.critical(self, "Erro ao Carregar Grafo", f"Não foi possível carregar o grafo do arquivo .poly: {e}")
@@ -679,7 +595,7 @@ class SistemaNavegacaoApp(QMainWindow):
 
             if self.check_num_vertices.isChecked():
                 font.setPointSize(6)
-                font.setBold(False) # Resetar bold para não afetar os números dos vértices
+                font.setBold(False)
                 text_item = self.graphics_scene.addText(str(i), font)
                 text_item.setPos(x + point_size/2, y + point_size/2)
         
@@ -691,8 +607,6 @@ class SistemaNavegacaoApp(QMainWindow):
                     x1, y1 = self.vertices_coords[p1_id]
                     x2, y2 = self.vertices_coords[p2_id]
                     self.graphics_scene.addLine(x1, y1, x2, y2, path_pen)
-
-        
     
     def map_clicked(self, event):
         if event.button() != Qt.LeftButton:
@@ -700,7 +614,6 @@ class SistemaNavegacaoApp(QMainWindow):
 
         scene_pos = self.graphics_view.mapToScene(event.position().toPoint())
 
-        # --- MODO DE ADICIONAR VÉRTICE ---
         if self.editing_mode == "Adicionar Vértice":
             new_id = lib.adicionar_vertice(scene_pos.x(), scene_pos.y())
             if new_id != -1:
@@ -711,7 +624,6 @@ class SistemaNavegacaoApp(QMainWindow):
                 QMessageBox.warning(self, "Erro", "Não foi possível adicionar o vértice. Limite máximo atingido.")
             return
 
-        # Encontra o vértice mais próximo do clique para os outros modos
         clicked_vertex_id, min_dist_sq = -1, float('inf')
         tolerance_sq = (self.point_size_slider.value() * 2.0)**2
         for i, (vx, vy) in enumerate(self.vertices_coords):
@@ -721,43 +633,36 @@ class SistemaNavegacaoApp(QMainWindow):
                 clicked_vertex_id = i
         
         if clicked_vertex_id == -1:
-            self.reset_selections() # Se clicar fora de um vértice, limpa seleções
+            self.reset_selections()
             return
 
-        # --- MODO DE ADICIONAR ARESTA ---
         if self.editing_mode == "Adicionar Aresta":
-            if self.first_edge_vertex == -1: # Primeiro clique
+            if self.first_edge_vertex == -1:
                 self.first_edge_vertex = clicked_vertex_id
                 self.statusBar().showMessage(f"Vértice {clicked_vertex_id} selecionado. Clique em outro para criar a aresta.")
-            else: # Segundo clique
+            else:
                 if self.first_edge_vertex != clicked_vertex_id:
                     if lib.adicionar_aresta(self.first_edge_vertex, clicked_vertex_id):
-                
                         total_arestas_c = lib.get_total_edges_from_poly()
                         orig_c, dest_c = ctypes.c_int(), ctypes.c_int()
                         weight_c = ctypes.c_double()
                         oneway_c = ctypes.c_int() 
                         lib.get_edge_info(total_arestas_c - 1, ctypes.byref(orig_c), ctypes.byref(dest_c), ctypes.byref(weight_c), ctypes.byref(oneway_c)) 
-                
-                # Adiciona a aresta completa (com o peso correto do C) na lista do python
                         self.edges_data.append((orig_c.value, dest_c.value, weight_c.value, oneway_c.value)) 
-                
                         self.statusBar().showMessage(f"Aresta criada entre {self.first_edge_vertex} e {clicked_vertex_id}.")
                     else:
                         QMessageBox.warning(self, "Erro", "Não foi possível adicionar a aresta.")
-                self.first_edge_vertex = -1 # Reseta para a próxima aresta
+                self.first_edge_vertex = -1
             self.update_map_display()
             return
             
-        # --- MODO DE REMOVER ARESTA ---
         if self.editing_mode == "Remover Aresta":
-            if self.first_edge_vertex == -1: # Primeiro clique
+            if self.first_edge_vertex == -1:
                 self.first_edge_vertex = clicked_vertex_id
                 self.statusBar().showMessage(f"Vértice {clicked_vertex_id} selecionado. Clique no vértice conectado para remover a aresta.")
-            else: # Segundo clique
+            else:
                 if self.first_edge_vertex != clicked_vertex_id:
                     if lib.remover_aresta(self.first_edge_vertex, clicked_vertex_id):
-                        # Remove a aresta da lista do python para exibição imediata
                         edge_to_remove = -1
                         for i, edge_tuple in enumerate(self.edges_data):
                             u, v, _, _ = edge_tuple 
@@ -770,10 +675,10 @@ class SistemaNavegacaoApp(QMainWindow):
                         self.statusBar().showMessage(f"Aresta entre {self.first_edge_vertex} e {clicked_vertex_id} removida.")
                     else:
                         self.statusBar().showMessage(f"Não há aresta entre {self.first_edge_vertex} e {clicked_vertex_id}.")
-                self.first_edge_vertex = -1 # Reseta para a próxima
+                self.first_edge_vertex = -1
             self.update_map_display()
             return
-            # --- MODO DE REMOVER VÉRTICE ---
+
         if self.editing_mode == "Remover Vértice":
             if clicked_vertex_id != -1:
                 reply = QMessageBox.question(self, "Confirmar Remoção", 
@@ -781,18 +686,15 @@ class SistemaNavegacaoApp(QMainWindow):
                                              QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
                 if reply == QMessageBox.Yes:
                     if lib.remover_vertice(clicked_vertex_id):
-                        
                         self.refresh_graph_data_from_c()
                         self.statusBar().showMessage(f"Vértice {clicked_vertex_id} e arestas conectadas removidos.")
-                        self.reset_selections() # Resetar seleções para evitar referências inválidas
+                        self.reset_selections()
                     else:
                        QMessageBox.warning(self, "Erro", "Não foi possível remover o vértice.")
             else:
                 self.statusBar().showMessage("Clique em um vértice para removê-lo.")
             return 
 
-
-        # --- MODO DE NAVEGAÇÃO (DEFAULT) ---
         if self.editing_mode == "Navegação":
             if self.selected_origin == -1 or self.selected_origin == clicked_vertex_id:
                 self.selected_origin = -1 if self.selected_origin == clicked_vertex_id else clicked_vertex_id
@@ -816,10 +718,9 @@ class SistemaNavegacaoApp(QMainWindow):
         self.statusBar().showMessage("Calculando menor caminho...")
         QApplication.processEvents()
 
-        # Limpa qualquer animação anterior e resultados visuais
-        self.stop_path_animation() # Novo método para parar animação
+        self.stop_path_animation()
         self.reset_dijkstra_results()
-        self.update_map_display() # Limpa o caminho desenhado anteriormente
+        self.update_map_display()
 
         path_buffer = PathArray()
         try:
@@ -839,11 +740,9 @@ class SistemaNavegacaoApp(QMainWindow):
             self.processing_time_label.setText(f"Tempo de Processamento: {result.tempo_processamento:.6f} s")
             self.explored_nodes_label.setText(f"Nós Explorados: {result.num_nos_explorados}")
             
-            # --- INICIAR ANIMAÇÃO DO PATH AQUI ---
-            self.path_animation_step = 0 # Começa do primeiro segmento
-            self.animated_path_items = [] # Limpa a lista de itens de linha animados
-            # Define o intervalo do timer em milissegundos (ex: 50ms para uma animação rápida, 200ms para lenta)
-            self.path_animation_timer.start(20) # 75 milissegundos por segmento
+            self.path_animation_step = 0
+            self.animated_path_items = []
+            self.path_animation_timer.start(20)
 
             self.statusBar().showMessage("Caminho calculado. Iniciando animação...")
 
@@ -851,8 +750,8 @@ class SistemaNavegacaoApp(QMainWindow):
         self.selected_origin = -1
         self.selected_destination = -1
         self.update_ui_selections()
-        self.stop_path_animation() # CHAME AQUI PARA PARAR QUALQUER ANIMAÇÃO PENDENTE
-        self.reset_dijkstra_results() # Isso já limpa current_path_ids e update_map_display remove o path
+        self.stop_path_animation()
+        self.reset_dijkstra_results()
         self.update_map_display()
         self.statusBar().showMessage("Seleção e resultados reiniciados.")
 
@@ -877,29 +776,26 @@ class SistemaNavegacaoApp(QMainWindow):
         self.statusBar().showMessage("Imagem do mapa copiada para a área de transferência!")
 
     def set_editing_mode(self, mode):
-        # Reseta seleções ao trocar de modo para evitar confusão
         self.first_edge_vertex = -1
         self.reset_selections()
         self.editing_mode = mode
         self.statusBar().showMessage(f"Modo de edição alterado para: {mode}")
 
-    # Função para carregar um novo arquivo OSM
     def load_new_osm_file(self):
         file_dialog = QFileDialog(self)
         file_dialog.setNameFilter("OpenStreetMap Files (*.osm)")
-        file_dialog.setDirectory(DATA_DIR) # Começa no diretório 'data'
+        file_dialog.setDirectory(DATA_DIR)
         
         if file_dialog.exec():
             selected_files = file_dialog.selectedFiles()
             if selected_files:
                 osm_file_path = selected_files[0]
-                self.reset_selections() # Limpa as seleções anteriores antes de carregar um novo mapa
-                self.reset_dijkstra_results() # Limpa resultados do Dijkstra
-                self.load_map_data(osm_file_path) # Chama a função de carregamento com o novo arquivo
+                self.reset_selections()
+                self.reset_dijkstra_results()
+                self.load_map_data(osm_file_path)
         else:
             self.statusBar().showMessage("Nenhum arquivo OSM selecionado.")
 
-    # Função para recarregar os dados do grafo da biblioteca C
     def refresh_graph_data_from_c(self):
         self.vertices_coords = []
         self.edges_data = []
@@ -924,8 +820,6 @@ class SistemaNavegacaoApp(QMainWindow):
 if __name__ == '__main__':
     app = QApplication(sys.argv)
 
-    # --- Carregar o Style Sheet de um arquivo externo ---
-    # Certifique-se de que 'import os' está no topo do seu arquivo.
     qss_file_path = os.path.join(os.path.dirname(__file__), 'style.qss')
     if os.path.exists(qss_file_path):
         try:
@@ -936,7 +830,6 @@ if __name__ == '__main__':
             print(f"ERRO: Nao foi possivel carregar o style sheet '{qss_file_path}': {e}")
     else:
         print(f"AVISO: Arquivo de style sheet '{qss_file_path}' nao encontrado. Usando estilo padrao do sistema.")
-    # --- Fim do carregamento do Style Sheet ---
 
     window = SistemaNavegacaoApp()
     window.show()
